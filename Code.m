@@ -1,10 +1,13 @@
 global G L K_0 T_0 Rtol Dtol;
-Rtol=1e-7;
+Rtol=1e-5;
 Dtol=1e-5;
 elastica=1;
-mode=4;
-% mode 1: planar, 2: sphere (using local
-% chart) 3: sphere (simple ode in global coords)
+mode=5;
+% 1: planar, 
+% 2: sphere (using local chart),
+% 3: sphere (guidobrunnets ode in global coords),
+% 4: general surface with G=0,
+% 5: general surface.
 
 switch elastica
     case 0
@@ -141,11 +144,11 @@ switch mode
     title('elastica');
     % distorted values for o. lemn: G=-0.76, K_0=sqrt(5.066)
     case 4
-    initial1=[0,0,1/4,0,1,0];
-    initial2=[0,0,-1/4,0,-1,0];
+    initial1=[2,0,1,0,0,1];
+    initial2=[2,0,-1,0,0,-1];
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
-    tspan = [0 1];
+    tspan = [0 5];
     [t1,y1] = ode78(@manifold1, tspan, initial1, opts);
     [t2,y2] = ode78(@manifold2, tspan, initial2, opts);
     T=[flip(-t1).',t2.'].';
@@ -164,14 +167,55 @@ switch mode
     %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
 
     figure
-    sphere,alpha 0, axis equal, view(3)
-    hold on
-    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4)
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
     title('3d elastica')
     hold on
     M = 30; N = 30;
-    xpar = linspace(-pi/2,pi/2,M); 
-    ypar = linspace(0,2*pi,N); 
+    xpar = linspace(-pi,pi,M); 
+    ypar = linspace(-1,1,N); 
+    [XPAR YPAR] = meshgrid(xpar,ypar);
+    X=zeros(size(XPAR,1),size(YPAR,1));    
+    Y=zeros(size(XPAR,1),size(YPAR,1));
+    Z=zeros(size(XPAR,1),size(YPAR,1));
+    for i=1:size(XPAR)
+        for j=1:size(YPAR)
+            Coord=param(XPAR(i,j),YPAR(i,j));
+            X(i,j)=Coord(1);
+            Y(i,j)=Coord(2);
+            Z(i,j)=Coord(3);
+        end
+    end
+    surf(X,Y,Z), alpha 0.3
+    case 5
+    initial1=[0.2,0,1,0,0,1,K_0,0];
+    initial2=[0.2,0,-1,0,0,-1,K_0,0];
+    opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
+
+    tspan = [0 5];
+    [t1,y1] = ode78(@surface1, tspan, initial1, opts);
+    [t2,y2] = ode78(@surface2, tspan, initial2, opts);
+    T=[flip(-t1).',t2.'].';
+
+    unprojcurve=([flip(y1).',y2.'].');
+    Curve=zeros(size(unprojcurve,1),3);
+    B=zeros(3,1);
+    for i=1:size(unprojcurve,1)
+        for j=1:3
+            B=param(unprojcurve(i,1),unprojcurve(i,2));
+            Curve(i,j)=B(j,1);
+        end
+    end
+
+    %figure
+    %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
+
+    figure
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
+    title('3d elastica')
+    hold on
+    M = 30; N = 30;
+    xpar = linspace(-pi,pi,M); 
+    ypar = linspace(-1,1,N); 
     [XPAR YPAR] = meshgrid(xpar,ypar);
     X=zeros(size(XPAR,1),size(YPAR,1));    
     Y=zeros(size(XPAR,1),size(YPAR,1));
@@ -186,7 +230,7 @@ switch mode
     end
     surf(X,Y,Z), alpha 0.3
 end
-GC(5,1)
+GC(1,2)
 
 function dz = fun(t,z)
 dz = zeros(6,1);
@@ -336,6 +380,58 @@ dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
 dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
 end
 
+% y=[u1,u2,u1',u2',eta1,eta2,K1,K2]
+function dy=surface1(t,y)
+global L;
+DF=diffU(y(1),y(2));
+CS=christoffel(y(1),y(2));
+
+f1=DF(1,1);
+f2=DF(2,1);
+g1=DF(1,2);
+g2=DF(2,2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)-y(7)*(y(5)*DF(1,1)+y(6)*DF(1,2));
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)-y(7)*(y(5)*DF(2,1)+y(6)*DF(2,2));
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)+y(7)*(y(3)*DF(1,1)+y(4)*DF(1,2));
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)+y(7)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+
+dy = zeros(8,1);
+dy(1) = y(3);
+dy(2) = y(4);
+dy(3) = (g1*r2-g2*r1)/(g2*f1-g1*f2);
+dy(4) = (f1*r2-f2*r1)/(f2*g1-f1*g2);
+dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
+dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
+dy(7) = y(8);
+dy(8) = -1/2*y(7)^3-(GC(y(1),y(2))+L)*y(7);
+end
+
+function dy=surface2(t,y)
+global L;
+DF=diffU(y(1),y(2));
+CS=christoffel(y(1),y(2));
+
+f1=DF(1,1);
+f2=DF(2,1);
+g1=DF(1,2);
+g2=DF(2,2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)+y(7)*(y(5)*DF(1,1)+y(6)*DF(1,2));
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)+y(7)*(y(5)*DF(2,1)+y(6)*DF(2,2));
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)-y(7)*(y(3)*DF(1,1)+y(4)*DF(1,2));
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)-y(7)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+
+dy = zeros(8,1);
+dy(1) = y(3);
+dy(2) = y(4);
+dy(3) = (g1*r2-g2*r1)/(g2*f1-g1*f2);
+dy(4) = (f1*r2-f2*r1)/(f2*g1-f1*g2);
+dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
+dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
+dy(7) = y(8);
+dy(8) = -1/2*y(7)^3-(GC(y(1),y(2))+L)*y(7);
+end
+
+
 function D=diffU(x,y)
 Dtol=1e-8;
     D1=(param(x+Dtol,y)-param(x,y))/Dtol;
@@ -373,17 +469,20 @@ end
 
 function U=param(x,y)
     U=zeros(3,1);
-    U(1)=2*cos(x)*cos(y);
-    U(2)=2*cos(x)*sin(y);
-    U(3)=2*sin(x);
+    U(1)=x;
+    U(2)=y;
+    U(3)=x^2+y^2;
 end
 
 %{
-U(1)=cos(x)*(1+y/2*cos(x/2));
+möbius:
+    U(1)=cos(x)*(1+y/2*cos(x/2));
     U(2)=sin(x)*(1+y/2*cos(x/2));
     U(3)=y/2*sin(x/2);
-möbius
-
+kugel:
+    U(1)=cos(x)*cos(y);
+    U(2)=cos(x)*sin(y);
+    U(3)=sin(x);
 %}
 function MetricT=metricT(x,y)
     MetricT=zeros(2);
