@@ -1,7 +1,10 @@
-global G L K_0 T_0 Rtol;
-Rtol=1e-5;
-elastica=6;
-mode=2
+global G L K_0 T_0 Rtol Dtol;
+Rtol=1e-7;
+Dtol=1e-5;
+elastica=1;
+mode=4;
+% mode 1: planar, 2: sphere (using local
+% chart) 3: sphere (simple ode in global coords)
 
 switch elastica
     case 0
@@ -44,6 +47,8 @@ switch elastica
         % 0<o<inf
 end
 T_0=-diffcur(0)/sqrt(cur(0)^2+1)
+
+% \ONLY PLANAR!\
 % o=K_0^2/(G+L)
 % z=[cx,cy,vx,vy,nx,ny] with c'=v %
 % 0: test
@@ -61,7 +66,7 @@ T_0=-diffcur(0)/sqrt(cur(0)^2+1)
 % 10: pseudo sinusoid
 
 c_0=[0,0];
-v_0=[1,1];
+v_0=[1,0];
 n_0=[-v_0(1,2),v_0(1,1)]*1/(sqrt(v_0(1,1).^2+v_0(1,2).^2));
 n_dot0=-K_0*v_0;
 
@@ -85,9 +90,9 @@ switch mode
     plot(Curve(:,1),Curve(:,2));
     title('elastica');
     case 2
-    initial1=[1,0,0,1];
-    initial2=[1,0,0,-1];
-    %forman: [theta0,phi0,theta'0,phi'0]
+    initial1=[0.1,0,0,1,1,0];
+    initial2=[0.1,0,0,-1,-1,0];
+    %format: [theta0,phi0,theta'0,phi'0,eta1,eta2]
     opts = odeset('Reltol',Rtol,'AbsTol',1e-10,'Stats','on');
 
     tspan = [0 10];
@@ -109,8 +114,7 @@ switch mode
     %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
 
     figure
-    sphere
-    alpha 0.5, axis equal, view(3)
+    sphere, alpha 0.5, axis equal, view(3)
     hold on
     plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4)
     title('3d elastica')
@@ -136,8 +140,53 @@ switch mode
     plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4);
     title('elastica');
     % distorted values for o. lemn: G=-0.76, K_0=sqrt(5.066)
+    case 4
+    initial1=[0,0,1/4,0,1,0];
+    initial2=[0,0,-1/4,0,-1,0];
+    opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
+    tspan = [0 1];
+    [t1,y1] = ode78(@manifold1, tspan, initial1, opts);
+    [t2,y2] = ode78(@manifold2, tspan, initial2, opts);
+    T=[flip(-t1).',t2.'].';
+
+    unprojcurve=([flip(y1).',y2.'].');
+    Curve=zeros(size(unprojcurve,1),3);
+    B=zeros(3,1);
+    for i=1:size(unprojcurve,1)
+        for j=1:3
+            B=param(unprojcurve(i,1),unprojcurve(i,2));
+            Curve(i,j)=B(j,1);
+        end
+    end
+
+    %figure
+    %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
+
+    figure
+    sphere,alpha 0, axis equal, view(3)
+    hold on
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4)
+    title('3d elastica')
+    hold on
+    M = 30; N = 30;
+    xpar = linspace(-pi/2,pi/2,M); 
+    ypar = linspace(0,2*pi,N); 
+    [XPAR YPAR] = meshgrid(xpar,ypar);
+    X=zeros(size(XPAR,1),size(YPAR,1));    
+    Y=zeros(size(XPAR,1),size(YPAR,1));
+    Z=zeros(size(XPAR,1),size(YPAR,1));
+    for i=1:size(XPAR)
+        for j=1:size(YPAR)
+            Coord=param(XPAR(i,j),YPAR(i,j));
+            X(i,j)=Coord(1);
+            Y(i,j)=Coord(2);
+            Z(i,j)=Coord(3);
+        end
+    end
+    surf(X,Y,Z), alpha 0.3
 end
+GC(5,1)
 
 function dz = fun(t,z)
 dz = zeros(6,1);
@@ -201,20 +250,26 @@ end
 %           theta''*f2+phi''*g2+r2=0,
 % "local" because this solves the curve in local
 % coordinates: theta,phi
+% y=[theta,phi,theta',phi',eta1,eta2] with eta1, eta2 spanning the normal
+% vector: n=eta1*dF/dtheta+eta2*dF/dphi
 
 function dy=local1(t,y)
 f1=@(x,y) -sin(x)*cos(y);
 g1=@(x,y) -cos(x)*sin(y);
 f2=@(x,y) -sin(x)*sin(y);
 g2=@(x,y) cos(x)*cos(y);
-r1=@(x,y,xp,yp,t) sin(x)*cos(x)*yp^2*f1(x,y)-2*tan(x)*xp*yp*g1(x,y)+cur(t)*(xp*sin(y)-yp*sin(x)*cos(x)*cos(y))/sqrt(xp^2+yp^2*cos(x)^2);
-r2=@(x,y,xp,yp,t) sin(x)*cos(x)*yp^2*f2(x,y)-2*tan(x)*xp*yp*g2(x,y)+cur(t)*(-xp*cos(y)-yp*sin(x)*cos(x)*sin(y))/sqrt(xp^2+yp^2*cos(x)^2);
+r1=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*yp^2*f1(x,y)-2*tan(x)*xp*yp*g1(x,y)+cur(t)*(-eta1*sin(x)*cos(y)-eta2*cos(x)*sin(y));
+r2=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*yp^2*f2(x,y)-2*tan(x)*xp*yp*g2(x,y)+cur(t)*(-eta1*sin(x)*sin(y)+eta2*cos(x)*cos(y));
+r3=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*eta2*yp*f1(x,y)-tan(x)*(eta1*yp+eta2*xp)*g1(x,y)-cur(t)*(-xp*sin(x)*cos(y)-yp*cos(x)*sin(y));
+r4=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*eta2*yp*f2(x,y)-tan(x)*(eta1*yp+eta2*xp)*g2(x,y)-cur(t)*(-xp*sin(x)*sin(y)+yp*cos(x)*cos(y));
 
-dy = zeros(4,1);
+dy = zeros(6,1);
 dy(1) = y(3);
 dy(2) = y(4);
-dy(3) = (g1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),t)-g2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
-dy(4) = (f1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),t)-f2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2)));
+dy(3) = (g1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),y(5),y(6),t)-g2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),y(5),y(6),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
+dy(4) = (f1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),y(5),y(6),t)-f2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),y(5),y(6),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2)));
+dy(5) = (g1(y(1),y(2))*r4(y(1),y(2),y(3),y(4),y(5),y(6),t)-g2(y(1),y(2))*r3(y(1),y(2),y(3),y(4),y(5),y(6),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
+dy(6) = (f1(y(1),y(2))*r4(y(1),y(2),y(3),y(4),y(5),y(6),t)-f2(y(1),y(2))*r3(y(1),y(2),y(3),y(4),y(5),y(6),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2))); 
 end
 
 function dy=local2(t,y)
@@ -222,22 +277,227 @@ f1=@(x,y) -sin(x)*cos(y);
 g1=@(x,y) -cos(x)*sin(y);
 f2=@(x,y) -sin(x)*sin(y);
 g2=@(x,y) cos(x)*cos(y);
-r1=@(x,y,xp,yp,t) sin(x)*cos(x)*yp^2*f1(x,y)-2*tan(x)*xp*yp*g1(x,y)-cur(t)*(xp*sin(y)-yp*sin(x)*cos(x)*cos(y))/sqrt(xp^2+yp^2*cos(x)^2);
-r2=@(x,y,xp,yp,t) sin(x)*cos(x)*yp^2*f2(x,y)-2*tan(x)*xp*yp*g2(x,y)-cur(t)*(-xp*cos(y)-yp*sin(x)*cos(x)*sin(y))/sqrt(xp^2+yp^2*cos(x)^2);
+r1=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*yp^2*f1(x,y)-2*tan(x)*xp*yp*g1(x,y)-cur(t)*(-eta1*sin(x)*cos(y)-eta2*cos(x)*sin(y));
+r2=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*yp^2*f2(x,y)-2*tan(x)*xp*yp*g2(x,y)-cur(t)*(-eta1*sin(x)*sin(y)+eta2*cos(x)*cos(y));
+r3=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*eta2*yp*f1(x,y)-tan(x)*(eta1*yp+eta2*xp)*g1(x,y)+cur(t)*(-xp*sin(x)*cos(y)-yp*cos(x)*sin(y));
+r4=@(x,y,xp,yp,eta1,eta2,t) sin(x)*cos(x)*eta2*yp*f2(x,y)-tan(x)*(eta1*yp+eta2*xp)*g2(x,y)+cur(t)*(-xp*sin(x)*sin(y)+yp*cos(x)*cos(y));
 
-dy = zeros(4,1);
+dy = zeros(6,1);
 dy(1) = y(3);
 dy(2) = y(4);
-dy(3) = (g1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),t)-g2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
-dy(4) = (f1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),t)-f2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2)));
+dy(3) = (g1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),y(5),y(6),t)-g2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),y(5),y(6),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
+dy(4) = (f1(y(1),y(2))*r2(y(1),y(2),y(3),y(4),y(5),y(6),t)-f2(y(1),y(2))*r1(y(1),y(2),y(3),y(4),y(5),y(6),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2)));
+dy(5) = (g1(y(1),y(2))*r4(y(1),y(2),y(3),y(4),y(5),y(6),t)-g2(y(1),y(2))*r3(y(1),y(2),y(3),y(4),y(5),y(6),t))/(g2(y(1),y(2))*f1(y(1),y(2))-g1(y(1),y(2))*f2(y(1),y(2)));
+dy(6) = (f1(y(1),y(2))*r4(y(1),y(2),y(3),y(4),y(5),y(6),t)-f2(y(1),y(2))*r3(y(1),y(2),y(3),y(4),y(5),y(6),t))/(f2(y(1),y(2))*g1(y(1),y(2))-f1(y(1),y(2))*g2(y(1),y(2))); 
 end
 
-% y=[theta1,phi1,theta2,phi2], yp=[theta1',phi1',theta2',phi2'] aka [theta1',phi1',theta1'',phi1''] with theta1,phi1 being the actualy coordinates, and
-% theta1'=theta2, phi1'=phi2
+function dy=manifold1(t,y)
+DF=diffU(y(1),y(2));
+CS=christoffel(y(1),y(2));
 
-% res equations: (yp(3)+sin(y(1))*cos(y(1)))*(-sin(y(1))*cos(y(2)))+(yp(4)-2*tan(y(1))*yp(1)*yp(2))*(-cos(y(1))*sin(y(2)))-cur(t)*(cos(y(1))*cos(y(2)))
-%        (yp(3)+sin(y(1))*cos(y(1)))*(-sin(y(1))*sin(y(2)))+(yp(4)-2*tan(y(1))*yp(1)*yp(2))*(cos(y(1))*sin(y(2)))-cur(t)*(cos(y(1))*sin(y(2)))
-%        (yp(3)+sin(y(1))*cos(y(1)))*(cos(y(1)))+(yp(4)-2*tan(y(1))*yp(1)*yp(2))*(sin(y(1)))-cur(t)*sin(y(1))];
+f1=DF(1,1);
+f2=DF(2,1);
+g1=DF(1,2);
+g2=DF(2,2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)-cur(t)*(y(5)*DF(1,1)+y(6)*DF(1,2));
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)-cur(t)*(y(5)*DF(2,1)+y(6)*DF(2,2));
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)+cur(t)*(y(3)*DF(1,1)+y(4)*DF(1,2));
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)+cur(t)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+
+dy = zeros(6,1);
+dy(1) = y(3);
+dy(2) = y(4);
+dy(3) = (g1*r2-g2*r1)/(g2*f1-g1*f2);
+dy(4) = (f1*r2-f2*r1)/(f2*g1-f1*g2);
+dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
+dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
+end
+
+
+function dy=manifold2(t,y)
+DF=diffU(y(1),y(2));
+CS=christoffel(y(1),y(2));
+
+f1=DF(1,1);
+f2=DF(2,1);
+g1=DF(1,2);
+g2=DF(2,2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)+cur(t)*(y(5)*DF(1,1)+y(6)*DF(1,2));
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)+cur(t)*(y(5)*DF(2,1)+y(6)*DF(2,2));
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)-cur(t)*(y(3)*DF(1,1)+y(4)*DF(1,2));
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)-cur(t)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+
+dy = zeros(6,1);
+dy(1) = y(3);
+dy(2) = y(4);
+dy(3) = (g1*r2-g2*r1)/(g2*f1-g1*f2);
+dy(4) = (f1*r2-f2*r1)/(f2*g1-f1*g2);
+dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
+dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
+end
+
+function D=diffU(x,y)
+Dtol=1e-8;
+    D1=(param(x+Dtol,y)-param(x,y))/Dtol;
+    D2=(param(x,y+Dtol)-param(x,y))/Dtol;
+    D=[D1,D2];
+end
+
+% diffU2: [dxdx,dydx,dxdy,dydy]f
+function DD=diffU2(x,y)
+DDtol=1e-5;
+
+    D1=(param(x+2*DDtol,y)-2*param(x+DDtol,y)+param(x,y))/(DDtol^2);
+    D2=(param(x+DDtol,y+DDtol)-param(x,y+DDtol)-param(x+DDtol,y)+param(x,y))/(DDtol^2);
+    D3=(param(x+DDtol,y+DDtol)-param(x+DDtol,y)-param(x,y+DDtol)+param(x,y))/(DDtol^2);
+    D4=(param(x,y+2*DDtol)-2*param(x,y+DDtol)+param(x,y))/(DDtol^2);
+    DD=[D1,D2,D3,D4];
+    
+end
+
+% diffU3: [dxdxdx,dxdydx,dxdxdy,dxdydy,dydxdx,dydydx,dydxdy,dydydy]f
+
+function DDD=diffU3(x,y)
+DDDtol=1e-4;
+    D1=(param(x+3*DDDtol,y)-3*param(x+2*DDDtol,y)+3*param(x+DDDtol,y)-param(x,y))/(DDDtol^3);
+    D2=(param(x+2*DDDtol,y+DDDtol)-2*param(x+DDDtol,y+DDDtol)-param(x+2*DDDtol,y)+2*param(x+DDDtol,y)+param(x,y+DDDtol)-param(x,y))/(DDDtol^3);
+    D3=(param(x+2*DDDtol,y+DDDtol)-param(x+2*DDDtol,y)-2*param(x+DDDtol,y+DDDtol)+2*param(x+DDDtol,y)+param(x,y+DDDtol)-param(x,y))/(DDDtol^3);
+    D4=(param(x+DDDtol,y+2*DDDtol)-2*param(x+DDDtol,y+DDDtol)+param(x+DDDtol,y)-param(x,y+2*DDDtol)+2*param(x,y+DDDtol)-param(x,y))/(DDDtol^3);
+    D5=(param(x+2*DDDtol,y+DDDtol)-2*param(x+DDDtol,y+DDDtol)+param(x,y+DDDtol)-param(x+2*DDDtol,y)+2*param(x+DDDtol,y)-param(x,y))/(DDDtol^3);
+    D6=(param(x+DDDtol,y+2*DDDtol)-param(x,y+2*DDDtol)-2*param(x+DDDtol,y+DDDtol)+2*param(x,y+DDDtol)+param(x+DDDtol,y)-param(x,y))/(DDDtol^3);
+    D7=(param(x+DDDtol,y+2*DDDtol)-2*param(x+DDDtol,y+DDDtol)-param(x,y+2*DDDtol)+2*param(x,y+DDDtol)+param(x+DDDtol,y)-param(x,y))/(DDDtol^3);
+    D8=(param(x,y+3*DDDtol)-3*param(x,y+2*DDDtol)+3*param(x,y+DDDtol)-param(x,y))/(DDDtol^3);
+    DDD=[D1,D2,D3,D4,D5,D6,D7,D8];
+end
+
+
+function U=param(x,y)
+    U=zeros(3,1);
+    U(1)=2*cos(x)*cos(y);
+    U(2)=2*cos(x)*sin(y);
+    U(3)=2*sin(x);
+end
+
+%{
+U(1)=cos(x)*(1+y/2*cos(x/2));
+    U(2)=sin(x)*(1+y/2*cos(x/2));
+    U(3)=y/2*sin(x/2);
+möbius
+
+%}
+function MetricT=metricT(x,y)
+    MetricT=zeros(2);
+    D=diffU(x,y);
+    for i=1:2
+        for j=1:2
+            MetricT(i,j)=D(:,i).'*D(:,j);
+        end
+    end
+end
+
+function DMetricTinv=dmetricTinv(x,y)
+    G=metricT(x,y);
+    dG=dmetricT(x,y);
+    dG1=zeros(2);
+    dG2=zeros(2);
+    for i=1:2
+        for j=1:2
+            dG1(i,j)=dG(i,j);
+            dG2(i,j)=dG(i,j+2);
+        end
+    end
+    D1=-G^-1*dG1*G^-1;
+    D2=-G^-1*dG2*G^-1;
+    DMetricTinv=[D1,D2];
+end
+
+function DMetricT=dmetricT(x,y)
+    DMetricT=zeros(2,4);
+    D1=diffU(x,y);
+    D2=diffU2(x,y);
+    for k=0:1
+        for i=1:2
+            for j=1:2
+                DMetricT(i,j+2*k)=D1(:,i).'*D2(:,j+2*k)+D2(:,i+2*k).'*D1(:,j);
+            end
+        end
+    end
+end
+
+% ddmetricT: above: diff (2x4 mat) of dmetricT wrt x (l=1 upper, l=2 lower...), below diff of
+% dmetricT wrt y
+function DDMetricT=ddmetricT(x,y)
+    DDMetricT=zeros(4,4);
+    D1=diffU(x,y);
+    D2=diffU2(x,y);
+    D3=diffU3(x,y);
+    for l=1:2
+        for k=1:2
+            for i=1:2
+                for j=1:2
+                    DDMetricT(i+2*(l-1),j+2*(k-1))=D3(:,i+2*(k-1)+4*(l-1)).'*D1(:,j)+D2(:,i+2*(k-1)).'*D2(:,j+2*(l-1))+D2(:,i+2*(l-1)).'*D2(:,j+2*(k-1))+D1(:,i).'*D3(:,j+2*(k-1)+4*(l-1));
+                end
+            end
+        end
+    end
+end
+
+function DChristoffel=dchristoffel(x,y)
+    G=metricT(x,y);
+    dGi=dmetricTinv(x,y);
+    dG=dmetricT(x,y);
+    ddG=ddmetricT(x,y);
+    Gi=G^-1;
+    DChristoffel=zeros(4);
+    for l=1:2
+        for k=1:2
+            for i=1:2
+                for j=1:2
+                    DChristoffel(i+2*(l-1),j+2*(k-1))=1/2*(dGi(k,1+2*(l-1))*(dG(i,1+2*(j-1))+dG(j,1+2*(i-1))-dG(i,j))+dGi(k,2+2*(l-1))*(dG(i,2+2*(j-1))+dG(j,2+2*(i-1))-dG(i,j+2)))+1/2*(Gi(k,1)*(ddG(i+2*(l-1),1+2*(j-1))+ddG(j+2*(l-1),1+2*(i-1))-ddG(i+2*(l-1),j))+Gi(k,2)*(ddG(i+2*(l-1),2+2*(j-1))+ddG(j+2*(l-1),2+2*(i-1))-ddG(i+2*(l-1),j+2)));
+                end
+            end
+        end
+    end
+end
+
+
+%convention: k=1,2 is the first or second matrix (upper index in
+%christoffel symbol, i,j are the usual matrix indices
+function Christoffel=christoffel(x,y)
+    G=metricT(x,y);
+    Gi=G^-1;
+    dG=dmetricT(x,y);
+    Christoffel=zeros(2,4);
+    for k=1:2
+        for i=1:2
+            for j=1:2
+                Christoffel(i,j+2*(k-1))=1/2*(Gi(k,1)*(dG(i,1+2*(j-1))+dG(j,1+2*(i-1))-dG(i,j))+Gi(k,2)*(dG(i,2+2*(j-1))+dG(j,2+2*(i-1))-dG(i,j+2)));
+            end
+        end
+    end
+end
+
+% riemannian curvature tensor: definiton: l in upper index, lower: ijk
+function Rcurtensor=RcurT(x,y)
+    Rcurtensor=zeros(4);
+    dCS=dchristoffel(x,y);
+    CS=christoffel(x,y);
+    for l=1:2
+        for k=1:2
+            for i=1:2
+                for j=1:2
+                    Rcurtensor(i+2*(l-1),j+2*(k-1))=dCS(k+2*(i-1),j+2*(l-1))-dCS(k+2*(j-1),i+2*(l-1))+(CS(1,i+2*(l-1))*CS(k,j)-CS(1,j+2*(l-1))*CS(k,i)+CS(2,i+2*(l-1))*CS(k,j+2)-CS(2,j+2*(l-1))*CS(k,i+2));
+                end
+            end
+        end
+    end
+end
+
+function GaussCur=GC(x,y)
+    Gi=metricT(x,y)^-1;
+    R=RcurT(x,y);
+    GaussCur=1/2*(Gi(1,1)*(R(1,1)+R(4,1))+Gi(2,1)*(R(1,2)+R(4,2))+Gi(1,2)*(R(1,3)+R(4,3))+Gi(2,2)*(R(1,4)+R(4,4)));
+end
 
 function PROJ=proj(theta,phi)
     PROJ=[cos(theta)*cos(phi),cos(theta)*sin(phi),sin(theta)].';
