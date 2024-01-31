@@ -1,63 +1,7 @@
 global G L K_0 T_0 Rtol Dtol P;
 Rtol=1e-5;
 Dtol=1e-5;
-elastica=1;
-mode=5;
-% 1: planar, 
-% 2: sphere (using local chart),
-% 3: sphere (guidobrunnets ode in global coords),
-% 4: general surface with G=0,
-% 5: general surface.
-
-% questions:
-% 1: the frenet equations only require 2 of the 3 coordinate euqations (i use xy equations),
-% coincedentally whenever the unit normal at t=0 is perpendiculay to z, the program
-% does not seem to compile. Will using the other two suffice to fix this
-% problem?
-% this a criterion?
-
-switch elastica
-    case 0
-        G=0; L=0; K_0=sqrt(20);
-    case 1
-        G=0; L=0; K_0=-10;
-        % o=+-inf
-    case 2
-        G=-1; L=0; K_0=3;
-        % -inf<o<-5.066
-    case 2.1
-        G=-1; L=0; K_0=sqrt(sqrt(40));
-        % o=-6.32455 (-sqrt(40))
-    case 3
-        G=-2; L=0; K_0=-sqrt(-(G+L)*(5+1/15));
-        % o=-5.066
-    case 4
-        G=-1*4; L=0; K_0=2.1*2;
-        % -5.066<o<-4
-    case 4.1
-        G=-1; L=0; K_0=2.142;
-        % o=-4.5882
-    case 5
-        G=-4; L=0; K_0=4;
-        % o=-4
-    case 6
-        G=-1; L=0; K_0=1.7;
-        % -4<o<-2
-    case 7
-        G=-2; L=0; K_0=2;
-        % o=-2
-    case 8
-        G=-1; L=0; K_0=1;
-        % -2<o<0
-    case 9
-        G=1; L=0; K_0=0;
-        % o=0
-    case 10
-        G=1*25; L=0; K_0=1*5;
-        % 0<o<inf
-end
-T_0=-diffcur(0)/sqrt(cur(0)^2+1)
-
+elastica=5;
 % \ONLY PLANAR!\
 % o=K_0^2/(G+L)
 % z=[cx,cy,vx,vy,nx,ny] with c'=v %
@@ -74,6 +18,62 @@ T_0=-diffcur(0)/sqrt(cur(0)^2+1)
 % 8: pseudo trochoid facing up
 % 9: line
 % 10: pseudo sinusoid
+mode=5;
+% 1: planar, 
+% 2: sphere (using local chart),
+% 3: sphere (guidobrunnets ode in global coords),
+% 4: general surface with G=0,
+% 5: general surface.
+surface=3;
+% 1: sphere
+% 2: cylinder
+% 3: hyperbola
+% 4: möbius
+% 5: "klein bottle"
+% 6: cos rotation
+cameraflight=0;
+
+switch elastica
+    case 0
+        G=0; L=0; K_0=sqrt(20);
+    case 1
+        G=0; L=0; K_0=-10;
+        % o=+-inf
+    case 2
+        G=0; L=-1; K_0=3;
+        % -inf<o<-5.066
+    case 2.1
+        G=0; L=-1; K_0=sqrt(sqrt(40));
+        % o=-6.32455 (-sqrt(40))
+    case 3
+        G=0; L=-2; K_0=-sqrt(-(G+L)*(5+1/15));
+        % o=-5.066
+    case 4
+        G=0; L=-1*4; K_0=2.1*2;
+        % -5.066<o<-4
+    case 4.1
+        G=0; L=-1; K_0=2.142;
+        % o=-4.5882
+    case 5
+        G=0; L=-4; K_0=4;
+        % o=-4
+    case 6
+        G=0; L=-1; K_0=1.7;
+        % -4<o<-2
+    case 7
+        G=0; L=-2; K_0=2;
+        % o=-2
+    case 8
+        G=0; L=-1; K_0=1;
+        % -2<o<0
+    case 9
+        G=0; L=1; K_0=0;
+        % o=0
+    case 10
+        G=0; L=1*25; K_0=1*5;
+        % 0<o<inf
+end
+T_0=-diffcur(0)/sqrt(cur(0)^2+1)
 
 c_0=[0,0];
 v_0=[1,0];
@@ -209,8 +209,10 @@ switch mode
     % initial: [x0,y0,x0',y0',eta1,eta2,K0,K0']
     % x,y being the local coordinates, eta1, eta2 the spanning vectors for
     % the normal vector, K0,K0' curvature initial values
-    initial1=[0.2,0,-1,0,0,1,K_0,0];
-    initial2=[0.2,0,-1,0,0,-1,K_0,0];
+    % !!!!!as such, the initial values x0,y0 always have to be perpendicular
+    % to eta1,eta2 with eta1=-eta2!!!!!
+    initial1=[1,0,1,0,0,1,K_0,0];
+    initial2=[1,0,-1,0,0,-1,K_0,0];
 
     v=diffU(initial1(1),initial1(2));
     [MAX,I]=max([abs([1 0 0]*cross(v(:,1),v(:,2))) 
@@ -227,7 +229,7 @@ switch mode
 
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
-    tspan = [0 5];
+    tspan = [0 10];
     [t1,y1] = ode78(@surface1, tspan, initial1, opts);
     [t2,y2] = ode78(@surface2, tspan, initial2, opts);
     T=[flip(-t1).',t2.'].';
@@ -251,7 +253,7 @@ switch mode
     hold on
     M = 30; N = 30;
     xpar = linspace(-pi,pi,M); 
-    ypar = linspace(-1,1,N); 
+    ypar = linspace(-pi,pi,N); 
     [XPAR YPAR] = meshgrid(xpar,ypar);
     X=zeros(size(XPAR,1),size(YPAR,1));    
     Y=zeros(size(XPAR,1),size(YPAR,1));
@@ -266,25 +268,77 @@ switch mode
     end
     surf(X,Y,Z), alpha 0.3
 end
-GC(0,0)
+
+% camera flight
+switch cameraflight
+    case 1
+    switch mode
+        case {2,3,4,5}
+        camproj perspective
+        camva(55)
+        theta_dat=1/3*sin(linspace(0,pi,100))+1;
+        phi_dat=linspace(0,2*pi,100);
+        X_dat=8*cos(theta_dat).*sin(phi_dat);
+        Y_dat=8*cos(theta_dat).*cos(phi_dat);
+        Z_dat=8*sin(theta_dat);
+        U_dat=-X_dat;
+        V_dat=-Y_dat;
+        W_dat=-Z_dat;
+        for i=1:length(X_dat)
+            campos([X_dat(i),Y_dat(i),Z_dat(i)])
+            camtarget([U_dat(i),V_dat(i),W_dat(i)])
+            drawnow
+        end
+    end
+end
+camva(10)
+
+
+
+
+
+
+
 
 function U=param(x,y)
-    U=zeros(3,1);
-    U(1)=cos(x);
-    U(2)=sin(x);
-    U(3)=y;
+U=zeros(3,1);
+switch surface
+    case 1
+        U(1)=cos(x)*cos(y);
+        U(2)=cos(x)*sin(y);
+        U(3)=sin(x);
+    case 2
+        U(1)=cos(x);
+        U(2)=sin(x);
+        U(3)=y;
+    case 3
+        U(1)=cos(x)*cosh(y);
+        U(2)=sin(x)*cosh(y);
+        U(3)=sinh(x);
+    case 4
+        U(1)=cos(x)*(1+y/2*cos(x/2));
+        U(2)=sin(x)*(1+y/2*cos(x/2));
+        U(3)=y/2*sin(x/2);
+    case 5
+        if x<=pi
+            U(1)=(3*(1+sin(x))+2*(1-cos(x)/2)*cos(y))*cos(x);
+            U(2)=(4+2*(1-cos(x)/2)*cos(y))*sin(x);
+            U(3)=2*(1-cos(x)/2)*sin(y);
+        else
+            U(1)=3*(1+sin(x))*cos(x)-2*(1-cos(x)/2)*cos(y);
+            U(2)=4*sin(x);
+            U(3)=2*(1-cos(x)/2)*sin(y);
+        end
+    case 6
+        U(1)=x;
+        U(2)=y;
+        U(3)=cos(4*sqrt(x^2+y^2));
+    case 7
+        U(1)=11;
+        U(2)=11;
+        U(3)=11;
 end
-
-%{
-möbius:
-    U(1)=cos(x)*(1+y/2*cos(x/2));
-    U(2)=sin(x)*(1+y/2*cos(x/2));
-    U(3)=y/2*sin(x/2);
-kugel:
-    U(1)=cos(x)*cos(y);
-    U(2)=cos(x)*sin(y);
-    U(3)=sin(x);
-%}
+end
 
 function dz = fun(t,z)
 dz = zeros(6,1);
