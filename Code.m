@@ -1,4 +1,4 @@
-global G L K_0 T_0 Rtol Dtol;
+global G L K_0 T_0 Rtol Dtol P;
 Rtol=1e-5;
 Dtol=1e-5;
 elastica=1;
@@ -8,6 +8,13 @@ mode=5;
 % 3: sphere (guidobrunnets ode in global coords),
 % 4: general surface with G=0,
 % 5: general surface.
+
+% questions:
+% 1: the frenet equations only require 2 of the 3 coordinate euqations (i use xy equations),
+% coincedentally whenever the unit normal at t=0 is perpendiculay to z, the program
+% does not seem to compile. Will using the other two suffice to fix this
+% problem?
+% this a criterion?
 
 switch elastica
     case 0
@@ -148,6 +155,18 @@ switch mode
     initial2=[2,0,-1,0,0,-1];
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
+    v=diffU(initial1(1),initial1(2));
+    [MAX,I]=max([abs([1 0 0]*cross(v(:,1),v(:,2))) 
+                 abs([0 1 0]*cross(v(:,1),v(:,2))) 
+                 abs([0 0 1]*cross(v(:,1),v(:,2)))]);
+    switch I
+        case 1
+            P=[2;3];
+        case 2
+            P=[1;3];
+        case 3
+            P=[1;2];
+    end
     tspan = [0 5];
     [t1,y1] = ode78(@manifold1, tspan, initial1, opts);
     [t2,y2] = ode78(@manifold2, tspan, initial2, opts);
@@ -187,8 +206,25 @@ switch mode
     end
     surf(X,Y,Z), alpha 0.3
     case 5
-    initial1=[0.2,0,1,0,0,1,K_0,0];
+    % initial: [x0,y0,x0',y0',eta1,eta2,K0,K0']
+    % x,y being the local coordinates, eta1, eta2 the spanning vectors for
+    % the normal vector, K0,K0' curvature initial values
+    initial1=[0.2,0,-1,0,0,1,K_0,0];
     initial2=[0.2,0,-1,0,0,-1,K_0,0];
+
+    v=diffU(initial1(1),initial1(2));
+    [MAX,I]=max([abs([1 0 0]*cross(v(:,1),v(:,2))) 
+             abs([0 1 0]*cross(v(:,1),v(:,2))) 
+             abs([0 0 1]*cross(v(:,1),v(:,2)))]);
+    switch I
+        case 1
+            P=[2;3];
+        case 2
+            P=[1;3];
+        case 3
+            P=[1;2];
+    end
+
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
     tspan = [0 5];
@@ -230,7 +266,25 @@ switch mode
     end
     surf(X,Y,Z), alpha 0.3
 end
-GC(1,2)
+GC(0,0)
+
+function U=param(x,y)
+    U=zeros(3,1);
+    U(1)=cos(x);
+    U(2)=sin(x);
+    U(3)=y;
+end
+
+%{
+möbius:
+    U(1)=cos(x)*(1+y/2*cos(x/2));
+    U(2)=sin(x)*(1+y/2*cos(x/2));
+    U(3)=y/2*sin(x/2);
+kugel:
+    U(1)=cos(x)*cos(y);
+    U(2)=cos(x)*sin(y);
+    U(3)=sin(x);
+%}
 
 function dz = fun(t,z)
 dz = zeros(6,1);
@@ -336,17 +390,18 @@ dy(6) = (f1(y(1),y(2))*r4(y(1),y(2),y(3),y(4),y(5),y(6),t)-f2(y(1),y(2))*r3(y(1)
 end
 
 function dy=manifold1(t,y)
+global P
 DF=diffU(y(1),y(2));
 CS=christoffel(y(1),y(2));
 
-f1=DF(1,1);
-f2=DF(2,1);
-g1=DF(1,2);
-g2=DF(2,2);
-r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)-cur(t)*(y(5)*DF(1,1)+y(6)*DF(1,2));
-r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)-cur(t)*(y(5)*DF(2,1)+y(6)*DF(2,2));
-r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)+cur(t)*(y(3)*DF(1,1)+y(4)*DF(1,2));
-r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)+cur(t)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+f1=DF(P(1),1);
+f2=DF(P(2),1);
+g1=DF(P(1),2);
+g2=DF(P(2),2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f1+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g1-cur(t)*(y(5)*f1+y(6)*g1);
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f2+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g2-cur(t)*(y(5)*f2+y(6)*g2);
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f1+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g1+cur(t)*(y(3)*f1+y(4)*g1);
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f2+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g2+cur(t)*(y(3)*f2+y(4)*g2);
 
 dy = zeros(6,1);
 dy(1) = y(3);
@@ -359,17 +414,18 @@ end
 
 
 function dy=manifold2(t,y)
+global P
 DF=diffU(y(1),y(2));
 CS=christoffel(y(1),y(2));
 
-f1=DF(1,1);
-f2=DF(2,1);
-g1=DF(1,2);
-g2=DF(2,2);
-r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)+cur(t)*(y(5)*DF(1,1)+y(6)*DF(1,2));
-r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)+cur(t)*(y(5)*DF(2,1)+y(6)*DF(2,2));
-r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)-cur(t)*(y(3)*DF(1,1)+y(4)*DF(1,2));
-r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)-cur(t)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+f1=DF(P(1),1);
+f2=DF(P(2),1);
+g1=DF(P(1),2);
+g2=DF(P(2),2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f1+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g1+cur(t)*(y(5)*f1+y(6)*g1);
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f2+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g2+cur(t)*(y(5)*f2+y(6)*g2);
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f1+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g1-cur(t)*(y(3)*f1+y(4)*g1);
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f2+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g2-cur(t)*(y(3)*f2+y(4)*g2);
 
 dy = zeros(6,1);
 dy(1) = y(3);
@@ -382,18 +438,18 @@ end
 
 % y=[u1,u2,u1',u2',eta1,eta2,K1,K2]
 function dy=surface1(t,y)
-global L;
+global L P;
 DF=diffU(y(1),y(2));
 CS=christoffel(y(1),y(2));
 
-f1=DF(1,1);
-f2=DF(2,1);
-g1=DF(1,2);
-g2=DF(2,2);
-r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)-y(7)*(y(5)*DF(1,1)+y(6)*DF(1,2));
-r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)-y(7)*(y(5)*DF(2,1)+y(6)*DF(2,2));
-r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)+y(7)*(y(3)*DF(1,1)+y(4)*DF(1,2));
-r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)+y(7)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+f1=DF(P(1),1);
+f2=DF(P(2),1);
+g1=DF(P(1),2);
+g2=DF(P(2),2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f1+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g1-y(7)*(y(5)*f1+y(6)*g1);
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f2+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g2-y(7)*(y(5)*f2+y(6)*g2);
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f1+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g1+y(7)*(y(3)*f1+y(4)*g1);
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f2+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g2+y(7)*(y(3)*f2+y(4)*g2);
 
 dy = zeros(8,1);
 dy(1) = y(3);
@@ -407,18 +463,18 @@ dy(8) = -1/2*y(7)^3-(GC(y(1),y(2))+L)*y(7);
 end
 
 function dy=surface2(t,y)
-global L;
+global L P;
 DF=diffU(y(1),y(2));
 CS=christoffel(y(1),y(2));
 
-f1=DF(1,1);
-f2=DF(2,1);
-g1=DF(1,2);
-g2=DF(2,2);
-r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(1,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(1,2)+y(7)*(y(5)*DF(1,1)+y(6)*DF(1,2));
-r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*DF(2,1)+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*DF(2,2)+y(7)*(y(5)*DF(2,1)+y(6)*DF(2,2));
-r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(1,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(1,2)-y(7)*(y(3)*DF(1,1)+y(4)*DF(1,2));
-r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*DF(2,1)+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*DF(2,2)-y(7)*(y(3)*DF(2,1)+y(4)*DF(2,2));
+f1=DF(P(1),1);
+f2=DF(P(2),1);
+g1=DF(P(1),2);
+g2=DF(P(2),2);
+r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f1+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g1+y(7)*(y(5)*f1+y(6)*g1);
+r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f2+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g2+y(7)*(y(5)*f2+y(6)*g2);
+r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f1+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g1-y(7)*(y(3)*f1+y(4)*g1);
+r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f2+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g2-y(7)*(y(3)*f2+y(4)*g2);
 
 dy = zeros(8,1);
 dy(1) = y(3);
@@ -466,24 +522,6 @@ DDDtol=1e-4;
     DDD=[D1,D2,D3,D4,D5,D6,D7,D8];
 end
 
-
-function U=param(x,y)
-    U=zeros(3,1);
-    U(1)=x;
-    U(2)=y;
-    U(3)=x^2+y^2;
-end
-
-%{
-möbius:
-    U(1)=cos(x)*(1+y/2*cos(x/2));
-    U(2)=sin(x)*(1+y/2*cos(x/2));
-    U(3)=y/2*sin(x/2);
-kugel:
-    U(1)=cos(x)*cos(y);
-    U(2)=cos(x)*sin(y);
-    U(3)=sin(x);
-%}
 function MetricT=metricT(x,y)
     MetricT=zeros(2);
     D=diffU(x,y);
