@@ -26,17 +26,20 @@ mode=5;
 % 3: sphere (guidobrunnets ode in global coords),
 % 4: general surface with G=0,
 % 5: general surface.
-sur=9;
+sur=10;
 
 % 1: sphere
 % 2: cylinder
-% 3: hyperbola
+% 3: hyperboloid (1 shell)
 % 4: möbius
 % 5: "klein bottle"
 % 6: cos rotation
 % 7: torus
 % 8: hyperbolic paraboloid
-cameraflight=1;
+% 9: pseudosphere (tractroid)
+% 10: screw
+% 11: chocolate
+cameraflight=0;
 
 switch elastica
     case 0
@@ -121,11 +124,17 @@ switch mode
                 initial1=[0,pi/2,0,1,1,0,K_0,0];
                 initial2=[0,pi/2,0,-1,-1,0,-K_0,0];
             case 8
-            initial1=[0,0,0,1,1,0,K_0,0];
-            initial2=[0,0,0,-1,-1,0,-K_0,0];
+                initial1=[0,0,0,1,1,0,K_0,0];
+                initial2=[0,0,0,-1,-1,0,-K_0,0];
             case 9
-            initial1=[0,3,0,1,1,0,K_0,0];
-            initial2=[0,3,0,-1,-1,0,-K_0,0];            
+                initial1=[0,2,0,1,1,0,K_0,0];
+                initial2=[0,2,0,-1,-1,0,-K_0,0];            
+            case 10
+                initial1=[0.5,1,0,1,1,0,K_0,0];
+                initial2=[0.5,1,0,-1,-1,0,-K_0,0];            
+            case 11
+                initial1=[0.5,1,0,1,1,0,K_0,0];
+                initial2=[0.5,1,0,-1,-1,0,-K_0,0];
         end
 end
 %}
@@ -272,7 +281,7 @@ switch mode
 
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
-    tspan = [0 3];
+    tspan = [0 14];
     [t1,y1] = ode78(@surface, tspan, initial1, opts);
     [t2,y2] = ode78(@surface, tspan, initial2, opts);
     T=[flip(-t1).',t2.'].';
@@ -294,7 +303,7 @@ switch mode
     plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
     title('3d elastica')
     hold on
-    M = 30; N = 30;
+    M = 50; N = 50;
     xpar = linspace(-pi,pi,M); 
     ypar = linspace(-pi,pi,N); 
     [XPAR YPAR] = meshgrid(xpar,ypar);
@@ -309,9 +318,25 @@ switch mode
             Z(i,j)=Coord(3);
         end
     end
-    surf(X,Y,Z), alpha 0.3
+    D0=zeros(M,N,3);
+    for i=1:M
+        for j=1:N
+            U=param(xpar(i),ypar(j));
+            D0(i,j,1)=30/360;
+            D0(i,j,2)=1;
+            D0(i,j,3)=0.2+(4+U(3))/10;
+        end
+
+    end
+    C0=hsv2rgb(D0);
+    switch sur
+        case 11
+            S=surf(X,Y,Z,C0);
+            S.FaceAlpha=0.8;
+        otherwise
+            surf(X,Y,Z), alpha 0.3
+    end
 end
-GC(1,1)
 % camera flight
 switch cameraflight
     case 1
@@ -319,11 +344,11 @@ switch cameraflight
         case {2,3,4,5}
         camproj perspective
         camva(55)
-        theta_dat=1/3*sin(linspace(0,pi,100))+0.4;
+        theta_dat=1/3*sin(linspace(0,pi,100))+0.2;
         phi_dat=linspace(0,2*pi,100);
-        X_dat=3*cos(theta_dat).*sin(phi_dat);
-        Y_dat=3*cos(theta_dat).*cos(phi_dat);
-        Z_dat=3*sin(theta_dat);
+        X_dat=4*sur*cos(theta_dat).*sin(phi_dat);
+        Y_dat=4*sur*cos(theta_dat).*cos(phi_dat);
+        Z_dat=4*sur*sin(theta_dat);
         U_dat=-X_dat;
         V_dat=-Y_dat;
         W_dat=-Z_dat;
@@ -334,8 +359,6 @@ switch cameraflight
         end
     end
 end
-camva(10)
-
 
 function U=param(x,y)
 global sur
@@ -351,9 +374,9 @@ switch sur
         U(2)=sin(x);
         U(3)=y;
     case 3
-        U(1)=cos(x)*cosh(y);
-        U(2)=sin(x)*cosh(y);
-        U(3)=sinh(y);
+        U(1)=3*cos(x)*cosh(y);
+        U(2)=3*sin(x)*cosh(y);
+        U(3)=3*sinh(y);
     case 4
         U(1)=0.8*cos(x)*(1+y/2*cos(x/2));
         U(2)=0.8*sin(x)*(1+y/2*cos(x/2));
@@ -381,9 +404,17 @@ switch sur
         U(2)=y;
         U(3)=(x^2-y^2);
     case 9
-        U(1)=(y-tanh(y))*cos(x);
-        U(2)=(y-tanh(y))*sin(x);
-        U(3)=sech(y);
+        U(1)=20*(sech(y))*cos(x);
+        U(2)=20*(sech(y))*sin(x);
+        U(3)=20*(y-tanh(y));
+    case 10
+        U(1)=3*x*cos(y);
+        U(2)=3*x*sin(y);
+        U(3)=3*y;
+    case 11
+        U(1)=4*x;
+        U(2)=4*y;
+        U(3)=4*(10*sin(2*x)/(abs(10*sin(2*x))+1))*(10*sin(2*y)/(abs(10*sin(2*y))+1));
 end
 %}
 end
