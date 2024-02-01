@@ -1,7 +1,8 @@
-global G L K_0 T_0 Rtol Dtol P;
+global G L K_0 T_0 Rtol Dtol P sur;
 Rtol=1e-5;
 Dtol=1e-5;
 elastica=5;
+
 % \ONLY PLANAR!\
 % o=K_0^2/(G+L)
 % z=[cx,cy,vx,vy,nx,ny] with c'=v %
@@ -18,20 +19,24 @@ elastica=5;
 % 8: pseudo trochoid facing up
 % 9: line
 % 10: pseudo sinusoid
+
 mode=5;
 % 1: planar, 
 % 2: sphere (using local chart),
 % 3: sphere (guidobrunnets ode in global coords),
 % 4: general surface with G=0,
 % 5: general surface.
-surface=3;
+sur=9;
+
 % 1: sphere
 % 2: cylinder
 % 3: hyperbola
 % 4: möbius
 % 5: "klein bottle"
 % 6: cos rotation
-cameraflight=0;
+% 7: torus
+% 8: hyperbolic paraboloid
+cameraflight=1;
 
 switch elastica
     case 0
@@ -88,13 +93,51 @@ N_dot0=-K_0*V_0+T_0*B_0;
 B_dot0=-T_0*N_0;
 
 switch mode
+    case 4
+    case 5 
+        switch sur
+            case 0
+                initial1=[0.1,0,0,1,1,0,K_0,0];
+                initial2=[0.1,0,0,1,-1,0,K_0,0];
+            case 1
+                initial1=[0.1,0,0,1,1,0,K_0,0];
+                initial2=[0.1,0,0,-1,-1,0,K_0,0];
+            case 2
+                initial1=[0,0,1,0,0,1,K_0,0];
+                initial2=[0,0,-1,0,0,-1,-K_0,0];
+            case 3
+                initial1=[0.1,0,0,1,1,0,K_0,0];
+                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
+            case 4
+                initial1=[0.1,0,0,1,1,0,K_0,0];
+                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
+            case 5
+                initial1=[0.1,0,0,1,1,0,K_0,0];
+                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
+            case 6
+                initial1=[0.3,0,0,1,1,0,K_0,0];
+                initial2=[0.3,0,0,-1,-1,0,-K_0,0];
+            case 7
+                initial1=[0,pi/2,0,1,1,0,K_0,0];
+                initial2=[0,pi/2,0,-1,-1,0,-K_0,0];
+            case 8
+            initial1=[0,0,0,1,1,0,K_0,0];
+            initial2=[0,0,0,-1,-1,0,-K_0,0];
+            case 9
+            initial1=[0,3,0,1,1,0,K_0,0];
+            initial2=[0,3,0,-1,-1,0,-K_0,0];            
+        end
+end
+%}
+
+switch mode
     case 1    
-    initial1=[c_0(1,1),c_0(1,2),v_0(1,1),v_0(1,2),n_0(1,1),n_0(1,2)];
-    initial2=[c_0(1,1),c_0(1,2),-v_0(1,1),-v_0(1,2),n_0(1,1),n_0(1,2)];
+    initial11=[c_0(1,1),c_0(1,2),v_0(1,1),v_0(1,2),n_0(1,1),n_0(1,2)];
+    initial12=[c_0(1,1),c_0(1,2),-v_0(1,1),-v_0(1,2),n_0(1,1),n_0(1,2)];
     opts = odeset('Reltol',1e-10,'AbsTol',1e-10,'Stats','on');
     tspan = [0 20];
-    [t1,z1] = ode78(@fun, tspan, initial1, opts);
-    [t2,z2] = ode78(@fun, tspan, initial2, opts);
+    [t1,z1] = ode78(@fun, tspan, initial11, opts);
+    [t2,z2] = ode78(@fun, tspan, initial12, opts);
     Curve=[flip(z1).',z2.'].';
     figure
     plot(Curve(:,1),Curve(:,2));
@@ -151,8 +194,8 @@ switch mode
     title('elastica');
     % distorted values for o. lemn: G=-0.76, K_0=sqrt(5.066)
     case 4
-    initial1=[2,0,1,0,0,1];
-    initial2=[2,0,-1,0,0,-1];
+    initial1=[0,0,1,0,0,1];
+    initial2=[0,0,-1,0,0,-1];
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
     v=diffU(initial1(1),initial1(2));
@@ -205,14 +248,14 @@ switch mode
         end
     end
     surf(X,Y,Z), alpha 0.3
+
     case 5
     % initial: [x0,y0,x0',y0',eta1,eta2,K0,K0']
     % x,y being the local coordinates, eta1, eta2 the spanning vectors for
     % the normal vector, K0,K0' curvature initial values
     % !!!!!as such, the initial values x0,y0 always have to be perpendicular
     % to eta1,eta2 with eta1=-eta2!!!!!
-    initial1=[1,0,1,0,0,1,K_0,0];
-    initial2=[1,0,-1,0,0,-1,K_0,0];
+    
 
     v=diffU(initial1(1),initial1(2));
     [MAX,I]=max([abs([1 0 0]*cross(v(:,1),v(:,2))) 
@@ -229,9 +272,9 @@ switch mode
 
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
-    tspan = [0 10];
-    [t1,y1] = ode78(@surface1, tspan, initial1, opts);
-    [t2,y2] = ode78(@surface2, tspan, initial2, opts);
+    tspan = [0 3];
+    [t1,y1] = ode78(@surface, tspan, initial1, opts);
+    [t2,y2] = ode78(@surface, tspan, initial2, opts);
     T=[flip(-t1).',t2.'].';
 
     unprojcurve=([flip(y1).',y2.'].');
@@ -268,7 +311,7 @@ switch mode
     end
     surf(X,Y,Z), alpha 0.3
 end
-
+GC(1,1)
 % camera flight
 switch cameraflight
     case 1
@@ -276,33 +319,29 @@ switch cameraflight
         case {2,3,4,5}
         camproj perspective
         camva(55)
-        theta_dat=1/3*sin(linspace(0,pi,100))+1;
+        theta_dat=1/3*sin(linspace(0,pi,100))+0.4;
         phi_dat=linspace(0,2*pi,100);
-        X_dat=8*cos(theta_dat).*sin(phi_dat);
-        Y_dat=8*cos(theta_dat).*cos(phi_dat);
-        Z_dat=8*sin(theta_dat);
+        X_dat=3*cos(theta_dat).*sin(phi_dat);
+        Y_dat=3*cos(theta_dat).*cos(phi_dat);
+        Z_dat=3*sin(theta_dat);
         U_dat=-X_dat;
         V_dat=-Y_dat;
         W_dat=-Z_dat;
         for i=1:length(X_dat)
-            campos([X_dat(i),Y_dat(i),Z_dat(i)])
-            camtarget([U_dat(i),V_dat(i),W_dat(i)])
-            drawnow
+            campos([X_dat(i),Y_dat(i),Z_dat(i)]);
+            camtarget([U_dat(i),V_dat(i),W_dat(i)]);
+            drawnow;
         end
     end
 end
 camva(10)
 
 
-
-
-
-
-
-
 function U=param(x,y)
+global sur
 U=zeros(3,1);
-switch surface
+
+switch sur
     case 1
         U(1)=cos(x)*cos(y);
         U(2)=cos(x)*sin(y);
@@ -314,30 +353,39 @@ switch surface
     case 3
         U(1)=cos(x)*cosh(y);
         U(2)=sin(x)*cosh(y);
-        U(3)=sinh(x);
+        U(3)=sinh(y);
     case 4
-        U(1)=cos(x)*(1+y/2*cos(x/2));
-        U(2)=sin(x)*(1+y/2*cos(x/2));
-        U(3)=y/2*sin(x/2);
+        U(1)=0.8*cos(x)*(1+y/2*cos(x/2));
+        U(2)=0.8*sin(x)*(1+y/2*cos(x/2));
+        U(3)=0.8*y/2*sin(x/2);
     case 5
         if x<=pi
-            U(1)=(3*(1+sin(x))+2*(1-cos(x)/2)*cos(y))*cos(x);
-            U(2)=(4+2*(1-cos(x)/2)*cos(y))*sin(x);
-            U(3)=2*(1-cos(x)/2)*sin(y);
+            U(1)=0.5*(3*(1+sin(x)+2*(1-cos(x)/2)*cos(y)))*cos(x);
+            U(2)=0.5*(4+2*(1-cos(x)/2)*cos(y))*sin(x);
+            U(3)=0.5*2*(1-cos(x)/2)*sin(y);
         else
-            U(1)=3*(1+sin(x))*cos(x)-2*(1-cos(x)/2)*cos(y);
-            U(2)=4*sin(x);
-            U(3)=2*(1-cos(x)/2)*sin(y);
+            U(1)=0.5*3*(1+sin(x))*cos(x)-2*(1-cos(x)/2)*cos(y);
+            U(2)=0.5*4*sin(x);
+            U(3)=0.5*2*(1-cos(x)/2)*sin(y);
         end
     case 6
+        U(1)=0.8*x;
+        U(2)=0.8*y;
+        U(3)=0.4*cos(3*sqrt(x^2+y^2));
+    case 7
+        U(1)=(1+1/2*cos(y))*cos(x);
+        U(2)=(1+1/2*cos(y))*sin(x);
+        U(3)=1/2*sin(y);
+    case 8
         U(1)=x;
         U(2)=y;
-        U(3)=cos(4*sqrt(x^2+y^2));
-    case 7
-        U(1)=11;
-        U(2)=11;
-        U(3)=11;
+        U(3)=(x^2-y^2);
+    case 9
+        U(1)=(y-tanh(y))*cos(x);
+        U(2)=(y-tanh(y))*sin(x);
+        U(3)=sech(y);
 end
+%}
 end
 
 function dz = fun(t,z)
@@ -491,7 +539,7 @@ dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
 end
 
 % y=[u1,u2,u1',u2',eta1,eta2,K1,K2]
-function dy=surface1(t,y)
+function dy=surface(t,y)
 global L P;
 DF=diffU(y(1),y(2));
 CS=christoffel(y(1),y(2));
@@ -515,32 +563,6 @@ dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
 dy(7) = y(8);
 dy(8) = -1/2*y(7)^3-(GC(y(1),y(2))+L)*y(7);
 end
-
-function dy=surface2(t,y)
-global L P;
-DF=diffU(y(1),y(2));
-CS=christoffel(y(1),y(2));
-
-f1=DF(P(1),1);
-f2=DF(P(2),1);
-g1=DF(P(1),2);
-g2=DF(P(2),2);
-r1=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f1+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g1+y(7)*(y(5)*f1+y(6)*g1);
-r2=(CS(1,1)*y(3)*y(3)+CS(1,2)*y(3)*y(4)+CS(2,1)*y(4)*y(3)+CS(2,2)*y(4)*y(4))*f2+(CS(1,3)*y(3)*y(3)+CS(1,4)*y(3)*y(4)+CS(2,3)*y(4)*y(3)+CS(2,4)*y(4)*y(4))*g2+y(7)*(y(5)*f2+y(6)*g2);
-r3=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f1+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g1-y(7)*(y(3)*f1+y(4)*g1);
-r4=(CS(1,1)*y(5)*y(3)+CS(1,2)*y(5)*y(4)+CS(2,1)*y(6)*y(3)+CS(2,2)*y(6)*y(4))*f2+(CS(1,3)*y(5)*y(3)+CS(1,4)*y(5)*y(4)+CS(2,3)*y(6)*y(3)+CS(2,4)*y(6)*y(4))*g2-y(7)*(y(3)*f2+y(4)*g2);
-
-dy = zeros(8,1);
-dy(1) = y(3);
-dy(2) = y(4);
-dy(3) = (g1*r2-g2*r1)/(g2*f1-g1*f2);
-dy(4) = (f1*r2-f2*r1)/(f2*g1-f1*g2);
-dy(5) = (g1*r4-g2*r3)/(g2*f1-g1*f2);
-dy(6) = (f1*r4-f2*r3)/(f2*g1-f1*g2);
-dy(7) = y(8);
-dy(8) = -1/2*y(7)^3-(GC(y(1),y(2))+L)*y(7);
-end
-
 
 function D=diffU(x,y)
 Dtol=1e-8;
