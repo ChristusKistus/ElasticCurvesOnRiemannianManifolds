@@ -1,7 +1,7 @@
 global G L K_0 T_0 Rtol Dtol P sur;
 Rtol=1e-5;
 Dtol=1e-5;
-elastica=5;
+elastica=1;
 
 % \ONLY PLANAR!\
 % o=K_0^2/(G+L)
@@ -26,7 +26,7 @@ mode=5;
 % 3: sphere (guidobrunnets ode in global coords),
 % 4: general surface with G=0,
 % 5: general surface.
-sur=10;
+sur=11;
 
 % 1: sphere
 % 2: cylinder
@@ -39,7 +39,7 @@ sur=10;
 % 9: pseudosphere (tractroid)
 % 10: screw
 % 11: chocolate
-cameraflight=0;
+cameraflight=1;
 
 switch elastica
     case 0
@@ -97,6 +97,26 @@ B_dot0=-T_0*N_0;
 
 switch mode
     case 4
+        switch sur
+            case 0
+                initial1=[0.1,0,0,1,1,0];
+                initial2=[0.1,0,0,1,-1,0];
+            case 1
+                initial1=[0.1,0,0,1,1,0];
+                initial2=[0.1,0,0,-1,-1,0];
+            case 2
+                initial1=[0,0,1,0,0,1];
+                initial2=[0,0,-1,0,0,-1];
+            case 3
+                initial1=[0.1,0,0,1,1,0];
+                initial2=[0.1,0,0,-1,-1,0];
+            case 7
+                initial1=[0,pi/2,0,1,1,0];
+                initial2=[0,pi/2,0,-1,-1,0];
+            case 8
+                initial1=[0,0,0,1,1,0];
+                initial2=[0,0,0,-1,-1,0];            
+        end
     case 5 
         switch sur
             case 0
@@ -127,8 +147,8 @@ switch mode
                 initial1=[0,0,0,1,1,0,K_0,0];
                 initial2=[0,0,0,-1,-1,0,-K_0,0];
             case 9
-                initial1=[0,2,0,1,1,0,K_0,0];
-                initial2=[0,2,0,-1,-1,0,-K_0,0];            
+                initial1=[0,1.5,1,0,0,1,K_0,0];
+                initial2=[0,1.5,-1,0,0,-1,-K_0,0];            
             case 10
                 initial1=[0.5,1,0,1,1,0,K_0,0];
                 initial2=[0.5,1,0,-1,-1,0,-K_0,0];            
@@ -137,7 +157,60 @@ switch mode
                 initial2=[0.5,1,0,-1,-1,0,-K_0,0];
         end
 end
-%}
+
+switch mode
+    case {4,5}
+        switch sur
+            case 0
+                M = 40; N = 40;
+                xpar = linspace(-pi/2,pi/2,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 1
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-1,1,N);  
+            case 2
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 3
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-1,1,N);  
+            case 4
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-1,1,N);  
+            case 5
+                M = 40; N = 40;
+                xpar = linspace(0,2*pi,M); 
+                ypar = linspace(0,2*pi,N);  
+            case 6
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 7
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 8
+                M = 40; N = 40;
+                xpar = linspace(-2,2,M); 
+                ypar = linspace(-2,2,N);  
+            case 9
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 10
+                M = 40; N = 40;
+                xpar = linspace(-2,2,M); 
+                ypar = linspace(-pi,pi,N);  
+            case 11
+                M = 40; N = 40;
+                xpar = linspace(-pi,pi,M); 
+                ypar = linspace(-pi,pi,N);  
+        end
+end
 
 switch mode
     case 1    
@@ -203,8 +276,6 @@ switch mode
     title('elastica');
     % distorted values for o. lemn: G=-0.76, K_0=sqrt(5.066)
     case 4
-    initial1=[0,0,1,0,0,1];
-    initial2=[0,0,-1,0,0,-1];
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
     v=diffU(initial1(1),initial1(2));
@@ -241,9 +312,7 @@ switch mode
     plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
     title('3d elastica')
     hold on
-    M = 30; N = 30;
-    xpar = linspace(-pi,pi,M); 
-    ypar = linspace(-1,1,N); 
+    
     [XPAR YPAR] = meshgrid(xpar,ypar);
     X=zeros(size(XPAR,1),size(YPAR,1));    
     Y=zeros(size(XPAR,1),size(YPAR,1));
@@ -256,7 +325,7 @@ switch mode
             Z(i,j)=Coord(3);
         end
     end
-    surf(X,Y,Z), alpha 0.3
+    surf(X,Y,Z), alpha 0.1
 
     case 5
     % initial: [x0,y0,x0',y0',eta1,eta2,K0,K0']
@@ -281,7 +350,7 @@ switch mode
 
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
-    tspan = [0 14];
+    tspan = [0 5];
     [t1,y1] = ode78(@surface, tspan, initial1, opts);
     [t2,y2] = ode78(@surface, tspan, initial2, opts);
     T=[flip(-t1).',t2.'].';
@@ -303,9 +372,7 @@ switch mode
     plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
     title('3d elastica')
     hold on
-    M = 50; N = 50;
-    xpar = linspace(-pi,pi,M); 
-    ypar = linspace(-pi,pi,N); 
+    
     [XPAR YPAR] = meshgrid(xpar,ypar);
     X=zeros(size(XPAR,1),size(YPAR,1));    
     Y=zeros(size(XPAR,1),size(YPAR,1));
@@ -334,10 +401,11 @@ switch mode
             S=surf(X,Y,Z,C0);
             S.FaceAlpha=0.8;
         otherwise
-            surf(X,Y,Z), alpha 0.3
+            surf(X,Y,Z), alpha 0.1
     end
 end
 % camera flight
+camzoom=[8 6.5 7 14 50 6 10 2 45 20 5];
 switch cameraflight
     case 1
     switch mode
@@ -346,9 +414,9 @@ switch cameraflight
         camva(55)
         theta_dat=1/3*sin(linspace(0,pi,100))+0.2;
         phi_dat=linspace(0,2*pi,100);
-        X_dat=4*sur*cos(theta_dat).*sin(phi_dat);
-        Y_dat=4*sur*cos(theta_dat).*cos(phi_dat);
-        Z_dat=4*sur*sin(theta_dat);
+        X_dat=camzoom(sur)*cos(theta_dat).*sin(phi_dat);
+        Y_dat=camzoom(sur)*cos(theta_dat).*cos(phi_dat);
+        Z_dat=camzoom(sur)*sin(theta_dat);
         U_dat=-X_dat;
         V_dat=-Y_dat;
         W_dat=-Z_dat;
@@ -356,9 +424,13 @@ switch cameraflight
             campos([X_dat(i),Y_dat(i),Z_dat(i)]);
             camtarget([U_dat(i),V_dat(i),W_dat(i)]);
             drawnow;
+            pause(0.5);
         end
     end
 end
+campos(camzoom(sur)*[sur/sqrt(2),sur/sqrt(2),1]);
+
+
 
 function U=param(x,y)
 global sur
@@ -366,47 +438,47 @@ U=zeros(3,1);
 
 switch sur
     case 1
-        U(1)=cos(x)*cos(y);
-        U(2)=cos(x)*sin(y);
-        U(3)=sin(x);
+        U(1)=4*cos(x)*cos(y);
+        U(2)=4*cos(x)*sin(y);
+        U(3)=4*sin(x);
     case 2
-        U(1)=cos(x);
-        U(2)=sin(x);
-        U(3)=y;
+        U(1)=2*cos(x);
+        U(2)=2*sin(x);
+        U(3)=2*y;
     case 3
         U(1)=3*cos(x)*cosh(y);
         U(2)=3*sin(x)*cosh(y);
         U(3)=3*sinh(y);
     case 4
-        U(1)=0.8*cos(x)*(1+y/2*cos(x/2));
-        U(2)=0.8*sin(x)*(1+y/2*cos(x/2));
-        U(3)=0.8*y/2*sin(x/2);
+        U(1)=5*cos(x)*(1+y/2*cos(x/2));
+        U(2)=5*sin(x)*(1+y/2*cos(x/2));
+        U(3)=5*y/2*sin(x/2);
     case 5
         if x<=pi
-            U(1)=0.5*(3*(1+sin(x)+2*(1-cos(x)/2)*cos(y)))*cos(x);
-            U(2)=0.5*(4+2*(1-cos(x)/2)*cos(y))*sin(x);
-            U(3)=0.5*2*(1-cos(x)/2)*sin(y);
+            U(1)=4*(3*(1+sin(x))+2*(1-cos(x)/2)*cos(y))*cos(x);
+            U(2)=4*(4+2*(1-cos(x)/2)*cos(y))*sin(x);
+            U(3)=4*2*(1-cos(x)/2)*sin(y);
         else
-            U(1)=0.5*3*(1+sin(x))*cos(x)-2*(1-cos(x)/2)*cos(y);
-            U(2)=0.5*4*sin(x);
-            U(3)=0.5*2*(1-cos(x)/2)*sin(y);
+            U(1)=4*3*(1+sin(x))*cos(x)-2*(1-cos(x)/2)*cos(y);
+            U(2)=4*4*sin(x);
+            U(3)=4*2*(1-cos(x)/2)*sin(y);
         end
     case 6
-        U(1)=0.8*x;
-        U(2)=0.8*y;
-        U(3)=0.4*cos(3*sqrt(x^2+y^2));
+        U(1)=2*x;
+        U(2)=2*y;
+        U(3)=cos(3*sqrt(x^2+y^2));
     case 7
-        U(1)=(1+1/2*cos(y))*cos(x);
-        U(2)=(1+1/2*cos(y))*sin(x);
-        U(3)=1/2*sin(y);
+        U(1)=4*(1+1/2*cos(y))*cos(x);
+        U(2)=4*(1+1/2*cos(y))*sin(x);
+        U(3)=4*1/2*sin(y);
     case 8
         U(1)=x;
         U(2)=y;
         U(3)=(x^2-y^2);
     case 9
-        U(1)=20*(sech(y))*cos(x);
-        U(2)=20*(sech(y))*sin(x);
-        U(3)=20*(y-tanh(y));
+        U(1)=30*(sech(y))*cos(x);
+        U(2)=30*(sech(y))*sin(x);
+        U(3)=30*(y-tanh(y));
     case 10
         U(1)=3*x*cos(y);
         U(2)=3*x*sin(y);
@@ -416,7 +488,7 @@ switch sur
         U(2)=4*y;
         U(3)=4*(10*sin(2*x)/(abs(10*sin(2*x))+1))*(10*sin(2*y)/(abs(10*sin(2*y))+1));
 end
-%}
+
 end
 
 function dz = fun(t,z)
