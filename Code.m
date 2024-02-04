@@ -1,7 +1,7 @@
 global G L K_0 T_0 Rtol Dtol P sur;
 Rtol=1e-5;
 Dtol=1e-5;
-elastica=1;
+elastica=4;
 
 % \ONLY PLANAR!\
 % o=K_0^2/(G+L)
@@ -20,7 +20,7 @@ elastica=1;
 % 9: line
 % 10: pseudo sinusoid
 
-mode=5;
+mode=1;
 % 1: planar, 
 % 2: sphere (using local chart),
 % 3: sphere (guidobrunnets ode in global coords),
@@ -81,7 +81,7 @@ switch elastica
         G=0; L=1*25; K_0=1*5;
         % 0<o<inf
 end
-T_0=-diffcur(0)/sqrt(cur(0)^2+1)
+T_0=-diffcur(0)/sqrt(cur(0)^2+1);
 
 c_0=[0,0];
 v_0=[1,0];
@@ -116,6 +116,9 @@ switch mode
             case 8
                 initial1=[0,0,0,1,1,0];
                 initial2=[0,0,0,-1,-1,0];            
+            case 9
+                initial1=[0,1.5,1,0,0,1];
+                initial2=[0,1.5,-1,0,0,-1];                
         end
     case 5 
         switch sur
@@ -124,7 +127,7 @@ switch mode
                 initial2=[0.1,0,0,1,-1,0,K_0,0];
             case 1
                 initial1=[0.1,0,0,1,1,0,K_0,0];
-                initial2=[0.1,0,0,-1,-1,0,K_0,0];
+                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
             case 2
                 initial1=[0,0,1,0,0,1,K_0,0];
                 initial2=[0,0,-1,0,0,-1,-K_0,0];
@@ -132,11 +135,11 @@ switch mode
                 initial1=[0.1,0,0,1,1,0,K_0,0];
                 initial2=[0.1,0,0,-1,-1,0,-K_0,0];
             case 4
-                initial1=[0.1,0,0,1,1,0,K_0,0];
-                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
+                initial1=[1.8,0,1,0,0,1,K_0,0];
+                initial2=[1.8,0,-1,0,0,-1,-K_0,0];
             case 5
-                initial1=[0.1,0,0,1,1,0,K_0,0];
-                initial2=[0.1,0,0,-1,-1,0,-K_0,0];
+                initial1=[0.5,0,1,0,0,1,K_0,0];
+                initial2=[0.5,0,-1,0,0,-1,-K_0,0];
             case 6
                 initial1=[0.3,0,0,1,1,0,K_0,0];
                 initial2=[0.3,0,0,-1,-1,0,-K_0,0];
@@ -144,8 +147,8 @@ switch mode
                 initial1=[0,pi/2,0,1,1,0,K_0,0];
                 initial2=[0,pi/2,0,-1,-1,0,-K_0,0];
             case 8
-                initial1=[0,0,0,1,1,0,K_0,0];
-                initial2=[0,0,0,-1,-1,0,-K_0,0];
+                initial1=[0,0,1,1,1/sqrt(2),-1/sqrt(2),K_0,0];
+                initial2=[0,0,-1,-1,-1/sqrt(2),1/sqrt(2),-K_0,0];
             case 9
                 initial1=[0,1.5,1,0,0,1,K_0,0];
                 initial2=[0,1.5,-1,0,0,-1,-K_0,0];            
@@ -153,8 +156,8 @@ switch mode
                 initial1=[0.5,1,0,1,1,0,K_0,0];
                 initial2=[0.5,1,0,-1,-1,0,-K_0,0];            
             case 11
-                initial1=[0.5,1,0,1,1,0,K_0,0];
-                initial2=[0.5,1,0,-1,-1,0,-K_0,0];
+                initial1=[0.2,1,1/sqrt(2),1/sqrt(2),1/sqrt(2),-1/sqrt(2),K_0,0];
+                initial2=[0.2,1,-1/sqrt(2),-1/sqrt(2),-1/sqrt(2),1/sqrt(2),-K_0,0];
         end
 end
 
@@ -168,11 +171,11 @@ switch mode
             case 1
                 M = 40; N = 40;
                 xpar = linspace(-pi,pi,M); 
-                ypar = linspace(-1,1,N);  
+                ypar = linspace(-pi,pi,N);  
             case 2
                 M = 40; N = 40;
                 xpar = linspace(-pi,pi,M); 
-                ypar = linspace(-pi,pi,N);  
+                ypar = linspace(-1,1,N);  
             case 3
                 M = 40; N = 40;
                 xpar = linspace(-pi,pi,M); 
@@ -211,19 +214,20 @@ switch mode
                 ypar = linspace(-pi,pi,N);  
         end
 end
-
+close all
 switch mode
     case 1    
     initial11=[c_0(1,1),c_0(1,2),v_0(1,1),v_0(1,2),n_0(1,1),n_0(1,2)];
     initial12=[c_0(1,1),c_0(1,2),-v_0(1,1),-v_0(1,2),n_0(1,1),n_0(1,2)];
     opts = odeset('Reltol',1e-10,'AbsTol',1e-10,'Stats','on');
-    tspan = [0 20];
+    tspan = [0 3];
     [t1,z1] = ode78(@fun, tspan, initial11, opts);
     [t2,z2] = ode78(@fun, tspan, initial12, opts);
     Curve=[flip(z1).',z2.'].';
     figure
-    plot(Curve(:,1),Curve(:,2));
-    title('elastica');
+    plot(Curve(:,1),Curve(:,2),'Color','#FF0000');
+    set(gcf,'Visible','on')
+    hold off
     case 2
     initial1=[0.1,0,0,1,1,0];
     initial2=[0.1,0,0,-1,-1,0];
@@ -249,10 +253,12 @@ switch mode
     %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
 
     figure
-    sphere, alpha 0.5, axis equal, view(3)
+    sphere, alpha 0.4, axis equal, view(3),'edgecolor','#8a8583'
     hold on
-    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4)
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4,'Color','#FF0000')
     title('3d elastica')
+    set(gcf,'Visible','on')
+    hold off
 
     case 3
     initial1=[1/sqrt(2),0,1/sqrt(2),0,1,0];
@@ -270,11 +276,13 @@ switch mode
 
     figure
     sphere
-    alpha 0.5, axis equal, view(3)
+    alpha 0.4, axis equal, view(3),'edgecolor','#8a8583'
     hold on
-    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4);
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4,'Color','#FF0000');
     title('elastica');
     % distorted values for o. lemn: G=-0.76, K_0=sqrt(5.066)
+    set(gcf,'Visible','on')
+    hold off
     case 4
     opts = odeset('Reltol',Rtol,'AbsTol',1e-5,'Stats','on');
 
@@ -309,11 +317,11 @@ switch mode
     %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
 
     figure
-    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4,'Color','#FF0000'),axis equal, view(3)
     title('3d elastica')
     hold on
     
-    [XPAR YPAR] = meshgrid(xpar,ypar);
+    [XPAR, YPAR] = meshgrid(xpar,ypar);
     X=zeros(size(XPAR,1),size(YPAR,1));    
     Y=zeros(size(XPAR,1),size(YPAR,1));
     Z=zeros(size(XPAR,1),size(YPAR,1));
@@ -325,7 +333,9 @@ switch mode
             Z(i,j)=Coord(3);
         end
     end
-    surf(X,Y,Z), alpha 0.1
+    surf(X,Y,Z,'edgecolor','#8a8583'), alpha 0.4
+    set(gcf,'Visible','on')
+    hold off
 
     case 5
     % initial: [x0,y0,x0',y0',eta1,eta2,K0,K0']
@@ -369,7 +379,7 @@ switch mode
     %plot(T(:,1),sqrt(Curve(:,1).^2+Curve(:,2).^2+Curve(:,3).^2))
 
     figure
-    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4),axis equal, view(3)
+    plot3(Curve(:,1),Curve(:,2),Curve(:,3),'LineWidth',4,'Color','#FF0000'),axis equal, view(3)
     title('3d elastica')
     hold on
     
@@ -401,18 +411,20 @@ switch mode
             S=surf(X,Y,Z,C0);
             S.FaceAlpha=0.8;
         otherwise
-            surf(X,Y,Z), alpha 0.1
+            surf(X,Y,Z,'edgecolor','#8a8583'), alpha 0.1
     end
+    set(gcf,'Visible','on')
+    hold off
 end
 % camera flight
-camzoom=[8 6.5 7 14 50 6 10 2 45 20 5];
+camzoom=[8 6.5 7 14 50 6 10 2 45 20 13];
 switch cameraflight
     case 1
     switch mode
         case {2,3,4,5}
         camproj perspective
-        camva(55)
-        theta_dat=1/3*sin(linspace(0,pi,100))+0.2;
+        camva(70)
+        theta_dat=1/3*sin(linspace(0,pi,100))+0.8;
         phi_dat=linspace(0,2*pi,100);
         X_dat=camzoom(sur)*cos(theta_dat).*sin(phi_dat);
         Y_dat=camzoom(sur)*cos(theta_dat).*cos(phi_dat);
@@ -428,9 +440,6 @@ switch cameraflight
         end
     end
 end
-campos(camzoom(sur)*[sur/sqrt(2),sur/sqrt(2),1]);
-
-
 
 function U=param(x,y)
 global sur
